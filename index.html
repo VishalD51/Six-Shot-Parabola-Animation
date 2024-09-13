@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Six-Shot Parabola Animation</title>
+  <style>
+    body { margin: 0; }
+    canvas { display: block; }
+    .controls {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 10;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 10px;
+      border-radius: 5px;
+    }
+    .controls input {
+      margin: 5px;
+    }
+    .controls button {
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="controls">
+    <label>Distance: <input type="number" id="distance" min="1" max="1000" value="100"></label><br>
+    <label>Angle: <input type="number" id="angle" min="1" max="90" value="45"></label><br>
+    <button id="fireBtn">Fire Shots</button><br>
+    <label>Shot Color: <input type="color" id="color" value="#ff0000"></label>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+    // Scene setup
+    let scene = new THREE.Scene();
+    let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    let renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    camera.position.z = 50;
+
+    // Ground plane
+    let groundGeometry = new THREE.PlaneGeometry(200, 200);
+    let groundMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide });
+    let ground = new THREE.Mesh(groundGeometry, groundMaterial);
+    ground.rotation.x = Math.PI / 2;
+    scene.add(ground);
+
+    // Ball (shot)
+    let balls = [];
+    let ballGeometry = new THREE.SphereGeometry(1, 32, 32);
+
+    function createBall(color) {
+      let ballMaterial = new THREE.MeshBasicMaterial({ color: color });
+      let ball = new THREE.Mesh(ballGeometry, ballMaterial);
+      scene.add(ball);
+      return ball;
+    }
+
+    // Parabolic motion calculations
+    function parabolicTrajectory(distance, angle, time) {
+      const g = 9.81; // Gravity
+      const rad = angle * (Math.PI / 180);
+      const velocity = Math.sqrt((distance * g) / Math.sin(2 * rad)); // Calculating initial velocity
+
+      const x = velocity * time * Math.cos(rad);
+      const y = velocity * time * Math.sin(rad) - (0.5 * g * Math.pow(time, 2));
+      return { x, y };
+    }
+
+    // Fire six shots
+    function fireShots() {
+      const distance = parseFloat(document.getElementById('distance').value);
+      const angle = parseFloat(document.getElementById('angle').value);
+      const color = document.getElementById('color').value;
+      let shotDelay = 0;
+
+      for (let i = 0; i < 1; i++) {
+        setTimeout(() => {
+          let ball = createBall(color);
+          balls.push({ mesh: ball, distance, angle, startTime: Date.now() });
+        }, shotDelay);
+        shotDelay += 500; // Delay between shots
+      }
+    }
+
+    // Animate the shots
+    function animate() {
+      requestAnimationFrame(animate);
+      
+      const currentTime = Date.now();
+      balls.forEach(ballData => {
+        const elapsed = (currentTime - ballData.startTime) / 1000; // Time in seconds
+        const position = parabolicTrajectory(ballData.distance, ballData.angle, elapsed);
+        if (position.y > 0) {
+          ballData.mesh.position.set(position.x, position.y, 0);
+        } else {
+          scene.remove(ballData.mesh); // Remove the ball if it has hit the ground
+        }
+      });
+      balls = balls.filter(ballData => ballData.mesh.position.y > 0); // Keep only balls in the air
+
+      renderer.render(scene, camera);
+    }
+
+    // Event listener for firing shots
+    document.getElementById('fireBtn').addEventListener('click', fireShots);
+
+    animate();
+  </script>
+</body>
+</html>
